@@ -1,159 +1,342 @@
-# 🏠 HomeLab Stack
+# Notifications Stack
 
-> One-click self-hosted services deployment platform for home servers and VPS.
+Unified notification center for all homelab services using **ntfy** and **Gotify**.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Bounties](https://img.shields.io/badge/bounties-%242340-orange)](BOUNTY.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://docs.docker.com/get-docker/)
-[![Self Hosted](https://img.shields.io/badge/self--hosted-40%2B%20services-purple.svg)](BOUNTY.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Bounties Available](https://img.shields.io/badge/bounties-available-orange.svg)](BOUNTY.md)
+## 🎯 Overview
 
-**HomeLab Stack** is a production-grade, one-command deployment platform for 40+ self-hosted services. It handles reverse proxying, SSO, monitoring, alerting, backups, and CN network compatibility — all wired together out of the box.
+This stack provides a centralized notification system that allows all other services in your homelab to send push notifications to your devices.
 
----
+| Service | Purpose | Web UI |
+|---------|---------|--------|
+| **ntfy** | Primary push notification server | `https://ntfy.${DOMAIN}` |
+| **Gotify** | Backup push notification server | `https://gotify.${DOMAIN}` |
+| **Apprise** | Multi-platform notification aggregator | `https://apprise.${DOMAIN}` |
+
+## 📋 Prerequisites
+
+- Docker and Docker Compose installed
+- Traefik reverse proxy configured (from base stack)
+- Domain name with DNS configured
+- (Optional) ntfy mobile app for push notifications
 
 ## 🚀 Quick Start
 
+1. **Start the stack:**
+   ```bash
+   docker compose -f stacks/notifications/docker-compose.yml up -d
+   ```
+
+2. **Verify services are running:**
+   ```bash
+   docker compose -f stacks/notifications/docker-compose.yml ps
+   ```
+
+3. **Test ntfy notification:**
+   ```bash
+   curl -d "Hello from Homelab!" https://ntfy.${DOMAIN}/homelab-test
+   ```
+
+4. **Subscribe to topics:**
+   - Open `https://ntfy.${DOMAIN}` in your browser
+   - Subscribe to topics like `homelab-alerts`, `updates`, etc.
+
+## 📱 Mobile App Setup
+
+### ntfy (Recommended)
+
+1. **Download the app:**
+   - [iOS App Store](https://apps.apple.com/app/ntfy/id1255233922)
+   - [Google Play Store](https://play.google.com/store/apps/details?id=io.heckel.ntfy)
+   - [F-Droid](https://f-droid.org/en/packages/io.heckel.ntfy/)
+
+2. **Configure your server:**
+   - Open the app
+   - Settings → Default server
+   - Enter your server URL: `https://ntfy.${DOMAIN}`
+
+3. **Subscribe to topics:**
+   - Add subscription: `homelab-alerts`
+   - Add subscription: `updates`
+   - Add subscription: `backups`
+
+### Gotify
+
+1. **Download the app:**
+   - [Google Play Store](https://play.google.com/store/apps/details?id=com.github.gotify)
+   - [F-Droid](https://f-droid.org/packages/com.github.gotify/)
+
+2. **Configure:**
+   - Open `https://gotify.${DOMAIN}`
+   - Create an application
+   - Copy the token to use with the notification script
+
+## 🔔 Service Integration
+
+### Alertmanager (Prometheus Alerts)
+
+Alertmanager is pre-configured to send alerts to ntfy. The configuration is in `config/alertmanager/alertmanager.yml`.
+
+**Topic mapping:**
+| Alert Severity | ntfy Topic | Priority |
+|----------------|------------|----------|
+| Warning | `homelab-alerts` | default |
+| Critical | `homelab-alerts-critical` | high |
+
+**Test Alertmanager integration:**
 ```bash
-# 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/homelab-stack.git
-cd homelab-stack
-
-# 2. Check dependencies & setup environment
-./install.sh
-
-# 3. Launch base infrastructure
-docker compose -f docker-compose.base.yml up -d
-
-# 4. Launch any stack
-./scripts/stack-manager.sh start media
-./scripts/stack-manager.sh start monitoring
-./scripts/stack-manager.sh start sso
+# Create a test alert
+curl -XPOST http://localhost:9093/api/v2/alerts \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "labels": {"alertname": "TestAlert", "severity": "warning"},
+    "annotations": {"summary": "This is a test alert"}
+  }]'
 ```
 
-> **China users**: Run `./scripts/setup-cn-mirrors.sh` first to configure Docker registry mirrors and apt sources.
+### Watchtower (Container Updates)
 
----
+Configure Watchtower to send notifications when containers are updated:
 
-## 📦 Service Catalog
+```bash
+# Add to .env
+WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy:80/homelab-updates?title=Watchtower
 
-| Stack | Services | Bounty |
-|-------|----------|--------|
-| [Base Infrastructure](stacks/base/) | Traefik, Portainer, Watchtower | ✅ Core |
-| [Media](stacks/media/) | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr | [#2](../../issues/2) |
-| [Storage](stacks/storage/) | Nextcloud, MinIO, FileBrowser, Syncthing | [#3](../../issues/3) |
-| [Monitoring](stacks/monitoring/) | Grafana, Prometheus, Loki, Alertmanager, Uptime Kuma | [#4](../../issues/4) |
-| [Network](stacks/network/) | AdGuard Home, WireGuard Easy, Cloudflare DDNS, Nginx Proxy Manager | [#5](../../issues/5) |
-| [Productivity](stacks/productivity/) | Gitea, Vaultwarden, Outline, Stirling-PDF, IT-Tools | [#6](../../issues/6) |
-| [AI](stacks/ai/) | Ollama, Open WebUI, LocalAI, n8n | [#7](../../issues/7) |
-| [Home Automation](stacks/home-automation/) | Home Assistant, Node-RED, Mosquitto, Zigbee2MQTT, ESPHome | [#8](../../issues/8) |
-| [SSO / Auth](stacks/sso/) | Authentik, PostgreSQL, Redis | [#9](../../issues/9) |
-| [Dashboard](stacks/dashboard/) | Homepage, Heimdall | [#10](../../issues/10) |
-| [Notifications](stacks/notifications/) | Gotify, Ntfy, Apprise | [#11](../../issues/11) |
-
----
-
-## 🏗️ Architecture
-
-```
-Internet
-   │
-   ▼
-[Traefik v3]  ← Reverse proxy, auto HTTPS, Forward Auth
-   │
-   ├── [Authentik]     ← SSO / OIDC provider (all services)
-   │
-   ├── [Monitoring]    ← Prometheus + Grafana + Loki + Alertmanager
-   │
-   ├── [Media Stack]   ← Jellyfin + *arr suite
-   ├── [Storage Stack] ← Nextcloud + MinIO
-   ├── [AI Stack]      ← Ollama + Open WebUI
-   └── [...]
+# Or via environment in docker-compose.yml
+environment:
+  - WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy:80/homelab-updates
+  - WATCHTOWER_NOTIFICATIONS_LEVEL=info
 ```
 
-All stacks share:
-- A common `proxy` Docker network (Traefik accessible)
-- A shared `databases` stack (PostgreSQL + Redis + MariaDB)
-- Authentik SSO via Forward Auth middleware
-- Centralized logging via Promtail → Loki
+### Gitea (Git Webhooks)
 
----
+Send push notifications on repository events:
 
-## 📁 Project Structure
+1. **Create a webhook in Gitea:**
+   - Repository → Settings → Webhooks → Add Webhook
+   - Target URL: `https://ntfy.${DOMAIN}/gitea-events`
+   - HTTP Method: POST
+   - Content Type: application/json
 
+2. **Custom payload (optional):**
+   ```json
+   {
+     "topic": "gitea-events",
+     "title": "{{ .Repository.FullName }} - {{ .Action }}",
+     "message": "{{ .Pusher.UserName }} pushed to {{ .Ref }}"
+   }
+   ```
+
+### Home Assistant
+
+Add ntfy as a notification integration:
+
+1. **Configuration:**
+   ```yaml
+   # configuration.yaml
+   notify:
+     - name: ntfy
+       platform: rest
+       method: POST
+       title_param: title
+       message_param: message
+       resource: https://ntfy.{{ DOMAIN }}/homeassistant
+       data:
+         priority: default
+         tags: homeassistant
+   ```
+
+2. **Automation example:**
+   ```yaml
+   automation:
+     - alias: "Notify on person arrival"
+       trigger:
+         - platform: state
+           entity_id: device_tracker.phone
+           to: "home"
+       action:
+         - service: notify.ntfy
+           data:
+             title: "Person Arrived"
+             message: "Phone is now at home"
+             data:
+               priority: default
+   ```
+
+### Uptime Kuma
+
+Configure ntfy as a notification channel:
+
+1. **Create notification channel:**
+   - Settings → Notifications → Add Notification
+   - Type: ntfy
+   - ntfy Server URL: `https://ntfy.${DOMAIN}`
+   - Topic: `uptime-kuma`
+   - Priority: default
+
+2. **Assign to monitors:**
+   - Edit each monitor
+   - Select the ntfy notification channel
+
+## 🛠️ Notification Script
+
+Use the unified notification script for consistent notifications:
+
+```bash
+# Basic usage
+./scripts/notify.sh <topic> <title> <message> [priority]
+
+# Examples:
+./scripts/notify.sh homelab "Backup Complete" "All databases backed up"
+./scripts/notify.sh alerts "Critical" "Disk usage above 90%" high
+./scripts/notify.sh updates "Container Updated" "nginx updated to v1.25" low
+
+# From another script
+./scripts/notify.sh backups "Backup Failed" "Error: disk full" urgent
 ```
-homelab-stack/
-├── install.sh                    # Entry point — env check + guided setup
-├── docker-compose.base.yml       # Core infrastructure
-├── .env.example                  # All configurable variables
-├── BOUNTY.md                     # Bounty task overview
-│
-├── stacks/                       # One directory per service group
-│   ├── media/
-│   ├── storage/
-│   ├── monitoring/
-│   ├── network/
-│   ├── productivity/
-│   ├── ai/
-│   ├── home-automation/
-│   ├── sso/
-│   ├── dashboard/
-│   ├── databases/
-│   └── notifications/
-│
-├── scripts/
-│   ├── check-deps.sh             # Dependency + network check
-│   ├── setup-env.sh              # Interactive .env generator
-│   ├── setup-cn-mirrors.sh       # CN mirror configuration
-│   ├── stack-manager.sh          # Start/stop/update stacks
-│   ├── backup.sh                 # Volume backup
-│   └── prefetch-images.sh        # Pre-pull all images
-│
-├── config/
-│   ├── traefik/
-│   ├── prometheus/
-│   ├── alertmanager/
-│   ├── loki/
-│   ├── grafana/
-│   └── authentik/
-│
-└── docs/
-    ├── getting-started.md
-    ├── services.md
-    ├── configuration.md
-    ├── cn-network.md
-    ├── sso-integration.md
-    ├── backup-restore.md
-    └── troubleshooting.md
+
+**Priority levels:**
+| Priority | ntfy | Gotify | Use Case |
+|----------|------|--------|----------|
+| Minimum | min | 1 | Non-urgent info |
+| Low | low | 3 | FYI notifications |
+| Default | default | 5 | Normal notifications |
+| High | high | 8 | Important alerts |
+| Urgent | urgent | 10 | Critical alerts |
+
+**Environment variables:**
+```bash
+# Required
+export DOMAIN=home.example.com
+
+# Optional
+export NTFY_URL=https://ntfy.$DOMAIN
+export NTFY_TOKEN=your_access_token  # For protected topics
+export GOTIFY_URL=https://gotify.$DOMAIN
+export GOTIFY_TOKEN=your_app_token   # For Gotify fallback
+export FALLBACK_ENABLED=true
 ```
 
----
+## 🔐 Security Configuration
 
-## 💰 Contributing & Bounties
+### ntfy Authentication
 
-This project has **active bounties** on open issues. See [BOUNTY.md](BOUNTY.md) for the full list.
+1. **Create admin user:**
+   ```bash
+   docker exec -it ntfy ntfy user add --role=admin admin
+   ```
 
-Each bounty task is self-contained with:
-- Exact deliverables
-- Acceptance criteria
-- Test instructions
+2. **Create service users (optional):**
+   ```bash
+   docker exec -it ntfy ntfy user add --role=user watchtower
+   docker exec -it ntfy ntfy access watchtower homelab-updates rw
+   ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+3. **Protect topics:**
+   ```bash
+   # Restrict topic access
+   docker exec -it ntfy ntfy access everyone homelab-alerts none
+   docker exec -it ntfy ntfy access admin homelab-alerts rw
+   ```
 
----
+### Gotify Authentication
 
-## 📋 Requirements
+1. **Login to Gotify:**
+   - Open `https://gotify.${DOMAIN}`
+   - Default: admin/admin (change immediately!)
 
-- Linux (Ubuntu 22.04+ recommended) or macOS
-- Docker Engine 24+
-- Docker Compose v2.20+
-- 4GB RAM minimum (8GB+ recommended)
-- A domain name (optional, but recommended for HTTPS)
+2. **Create applications:**
+   - Apps → Create Application
+   - Name: "Homelab Notifications"
+   - Copy the token
 
----
+3. **Update environment:**
+   ```bash
+   export GOTIFY_TOKEN=your_app_token
+   ```
 
-## 📄 License
+## 📊 Monitoring
 
-MIT
+### Health Checks
+
+```bash
+# Check ntfy health
+curl -sf https://ntfy.${DOMAIN}/v1/health
+
+# Check Gotify health
+curl -sf https://gotify.${DOMAIN}/health
+
+# Check Apprise health
+curl -sf https://apprise.${DOMAIN}/status
+```
+
+### Logs
+
+```bash
+# View ntfy logs
+docker logs ntfy -f
+
+# View Gotify logs
+docker logs gotify -f
+
+# View all notification stack logs
+docker compose -f stacks/notifications/docker-compose.yml logs -f
+```
+
+## 🔧 Troubleshooting
+
+### ntfy not receiving notifications
+
+1. **Check service is running:**
+   ```bash
+   docker ps | grep ntfy
+   curl https://ntfy.${DOMAIN}/v1/health
+   ```
+
+2. **Check topic permissions:**
+   ```bash
+   docker exec -it ntfy ntfy access
+   ```
+
+3. **Check firewall:**
+   - Ensure port 443 is open
+   - Check Traefik routing
+
+### Gotify token issues
+
+1. **Verify token:**
+   ```bash
+   curl -H "X-Gotify-Key: YOUR_TOKEN" https://gotify.${DOMAIN}/application
+   ```
+
+2. **Regenerate token:**
+   - Login to Gotify UI
+   - Apps → Regenerate Token
+
+### Mobile app not receiving push notifications
+
+1. **Check server URL:**
+   - Settings → Default server
+   - Must be exactly `https://ntfy.${DOMAIN}`
+
+2. **Check topic subscription:**
+   - Verify you're subscribed to the topic
+   - Check notification permissions
+
+3. **Check battery optimization (Android):**
+   - Disable battery optimization for ntfy app
+   - Enable "Instant Delivery" mode
+
+## 📚 Additional Resources
+
+- [ntfy Documentation](https://ntfy.sh/docs/)
+- [ntfy GitHub](https://github.com/binwiederhier/ntfy)
+- [Gotify Documentation](https://gotify.net/docs/)
+- [Gotify GitHub](https://github.com/gotify/server)
+- [Apprise Documentation](https://github.com/caronc/apprise)
+
+## 📝 TODO
+
+- [ ] Add Telegram/Discord bot integration
+- [ ] Add SMTP fallback
+- [ ] Create Grafana dashboard for notification metrics
+- [ ] Add notification templating system
